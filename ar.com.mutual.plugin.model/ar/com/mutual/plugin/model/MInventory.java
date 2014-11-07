@@ -111,8 +111,7 @@ public class MInventory extends MPluginDocAction {
                                         
                 System.out.println(texto_nuevo);
 
-                ClientRequest requestAdd = fac.createRequest(URLParam + "/{id}");
-
+                
 
                 // Vamos a serializar el XML  
                 // Lo primero es obtener el formato de salida  
@@ -135,6 +134,8 @@ public class MInventory extends MPluginDocAction {
                 xmltext = serializer.outputString(documentJDOM);
                                   
                 System.out.println(xmltext);
+                
+                ClientRequest requestAdd = fac.createRequest(URLParam + "/{id}");
                 
                 requestAdd.accept("application/xml").pathParameter("id", 4).body( MediaType.APPLICATION_XML, xmltext);
 

@@ -1,35 +1,20 @@
 package ar.com.mutual.plugin.model;
  
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
+import java.math.BigDecimal;
 import java.util.Properties;
 
-import javax.ws.rs.core.MediaType;
-
-import org.apache.commons.httpclient.Credentials;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.http.client.ClientProtocolException;
-import org.jboss.resteasy.client.ClientExecutor;
 import org.jboss.resteasy.client.ClientRequest;
-import org.jboss.resteasy.client.ClientRequestFactory;
 import org.jboss.resteasy.client.ClientResponse;
-import org.jboss.resteasy.client.core.executors.ApacheHttpClientExecutor;
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.input.SAXBuilder;
-import org.jdom2.output.Format;
-import org.jdom2.output.XMLOutputter;
 import org.openXpertya.model.MMovementLine;
 import org.openXpertya.model.PO;
 import org.openXpertya.plugin.MPluginDocAction;
 import org.openXpertya.plugin.MPluginStatusDocAction;
 import org.openXpertya.process.DocAction;
 
-import ar.com.mutual.plugin.utils.ClientRequestInstance;
+import ar.com.mutual.plugin.utils.ClientWS;
+import ar.com.mutual.plugin.utils.WSParser;
  
 public class MMovement extends MPluginDocAction {
  
@@ -47,41 +32,35 @@ public class MMovement extends MPluginDocAction {
 
 		try {
 			
+			/* 
+			 * Para cada línea del movimiento tengo que actualizar el stock con la consulta
+			 * al stock total disponible para ese producto (hacer función para obtener el dato).
+			 * 
+			*/
+			
 			for(int ind=0;ind<movlines_id.length;ind++) {
 				
+				// Obtengo la información de cada uno de los productos que estoy moviendo y necesito actualizar stock
 				
+				org.openXpertya.model.MMovementLine line = new org.openXpertya.model.MMovementLine(this.m_ctx, movlines_id[ind],null);
+				org.openXpertya.model.MProduct product = new org.openXpertya.model.MProduct(this.m_ctx, line.getM_Product_ID(),null);
+				BigDecimal cant = line.getMovementQty();
 				
+				// Obtengo la información de la entidad que necesitamos modificar
 				
+				ClientRequest request =  ClientWS.getItem(this.m_ctx, "/stock_availables", product.getValue());
+				request.accept("application/xml");	            
+	            ClientResponse<String> response = request.get(String.class);
+
+
+	            if (response.getStatus() != 200) {
+	                    throw new RuntimeException("Failed : HTTP error code : " + response.getStatus());
+	            } else {	
+	                String xml_item = WSParser.parserUpdateStock(response.getEntity().getBytes("UTF-8"), cant.toString());	                
+	                ClientWS.putItem(this.m_ctx, "/stock_availables", product.getValue(), xml_item);
+	            }
+	            	
 			}
-			
-			String URLItem = "/stock_availables";
-			
-			ClientRequestInstance requestGet = new ClientRequestInstance(this.m_ctx, URLItem, "");
-            ClientResponse<String> response = requestGet.get(String.class);
-            System.out.println(response.getEntity());
-            
-            
-
-            if (response.getStatus() != 200) {
-                    throw new RuntimeException("Failed : HTTP error code : "
-                                    + response.getStatus());
-            } else {
-                
-                
-                requestAdd.accept("application/xml").pathParameter("id", 4).body( MediaType.APPLICATION_XML, xmltext);
-
-                ClientResponse responsePut = requestAdd.put();
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut.getStatus());
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut);                        
-                
-                
-                
-                
-            }
             
 
 		} catch (ClientProtocolException e) {
