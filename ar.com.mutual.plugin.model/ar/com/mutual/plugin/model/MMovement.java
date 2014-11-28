@@ -12,6 +12,7 @@ import org.openXpertya.model.PO;
 import org.openXpertya.plugin.MPluginDocAction;
 import org.openXpertya.plugin.MPluginStatusDocAction;
 import org.openXpertya.process.DocAction;
+import org.openXpertya.util.Env;
 
 import ar.com.mutual.plugin.utils.ClientWS;
 import ar.com.mutual.plugin.utils.WSParser;
@@ -44,11 +45,28 @@ public class MMovement extends MPluginDocAction {
 				
 				org.openXpertya.model.MMovementLine line = new org.openXpertya.model.MMovementLine(this.m_ctx, movlines_id[ind],null);
 				org.openXpertya.model.MProduct product = new org.openXpertya.model.MProduct(this.m_ctx, line.getM_Product_ID(),null);
-				BigDecimal cant = line.getMovementQty();
+				BigDecimal cant = Env.ZERO;
+				
+				org.openXpertya.model.MLocator loc = new org.openXpertya.model.MLocator(this.m_ctx, line.getM_Locator_ID(), null);
+				
+				// Necesito determinar si el depósito de origen corresponde a restar o sumar stock en presta
+				
+				String sumarOrigen = MParametros.getParameterValueByName(this.m_ctx, "nombreOrigenRestarStock", null);
+
+				
+				if(sumarOrigen.equals(loc.getValue())) {
+					
+					cant =line.getMovementQty().negate();
+		            
+				} else {
+					
+					cant =line.getMovementQty();
+					
+				}
 				
 				// Obtengo la información de la entidad que necesitamos modificar
 				
-				ClientRequest request =  ClientWS.getItem(this.m_ctx, "/stock_availables", product.getValue());
+				ClientRequest request =  ClientWS.getItem(this.m_ctx, "/stock_availables/", product.getValue());
 				request.accept("application/xml");	            
 	            ClientResponse<String> response = request.get(String.class);
 
@@ -56,10 +74,11 @@ public class MMovement extends MPluginDocAction {
 	            if (response.getStatus() != 200) {
 	                    throw new RuntimeException("Failed : HTTP error code : " + response.getStatus());
 	            } else {	
-	                String xml_item = WSParser.parserUpdateStock(response.getEntity().getBytes("UTF-8"), cant.toString());	                
-	                ClientWS.putItem(this.m_ctx, "/stock_availables", product.getValue(), xml_item);
+	                String xml_item = WSParser.parserUpdateStock(response.getEntity().getBytes("UTF-8"), cant.setScale(0), "sumar");	                
+	                ClientWS.putItem(this.m_ctx, "/stock_availables/", product.getValue(), xml_item);
 	            }
-	            	
+
+	            
 			}
             
 
