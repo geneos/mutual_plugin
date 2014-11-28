@@ -3,6 +3,7 @@ package ar.com.mutual.plugin.model;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.util.Properties;
 
@@ -23,11 +24,15 @@ import org.jdom2.Element;
 import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
+import org.openXpertya.model.MInOutLine;
 import org.openXpertya.model.MInventoryLine;
 import org.openXpertya.model.PO;
 import org.openXpertya.plugin.MPluginDocAction;
 import org.openXpertya.plugin.MPluginStatusDocAction;
 import org.openXpertya.process.DocAction;
+
+import ar.com.mutual.plugin.utils.ClientWS;
+import ar.com.mutual.plugin.utils.WSParser;
  
 public class MInventory extends MPluginDocAction {
  
@@ -40,117 +45,80 @@ public class MInventory extends MPluginDocAction {
 	public MPluginStatusDocAction postCompleteIt(DocAction document) {
 		
 		org.openXpertya.model.MInventory inventario = (org.openXpertya.model.MInventory)document;
+		int[] movlines_id = MInventoryLine.getAllIDs("M_InventoryLine", "M_Inventory_ID = " + inventario.getM_Inventory_ID(), this.m_trx);
 		
-		try {
-            
-            // Obtener los datos de conexión desde la tabla de parámetros
+		
 			
-            String userId = MParametros.getParameterValueByName(this.m_ctx, "userPrestashop", null);
-            // Deberíamos de aceptar valores nulos o como en esta prueba password no sacarlo de la tabla
-            // String password = MParametros.getParameterValueByName(this.m_ctx, "passwordPrestashop", null);
-            
-            
-            String password = "";
-            String URLParam = MParametros.getParameterValueByName(this.m_ctx, "urlPrestashop", null);
-                	
-            URLParam += "/stock_availables";
-                
-            //String userId = "44JBNUUQY34YG5R2BHNFJ6AC3XJ7Z8IF";
-            //String password = "";
+		try {
+			
+			/* 
+			 * Para cada línea de la recepción de terceros tengo que actualizar el stock con la consulta
+			 * al stock total disponible para ese producto (hacer función para obtener el dato).
+			 * 
+			*/
+			
+			for(int ind=0;ind<movlines_id.length;ind++) {
+				
+				// Obtengo la información de cada uno de los productos que estoy moviendo y necesito actualizar stock
+				
+				org.openXpertya.model.MInventoryLine line = new org.openXpertya.model.MInventoryLine(this.m_ctx, movlines_id[ind], this.m_trx);
+				String doctype = line.getInventoryType();
+				
+				org.openXpertya.model.MLocator loc = new org.openXpertya.model.MLocator(this.m_ctx, line.getM_Locator_ID(), this.m_trx);
+				org.openXpertya.model.MProduct product = new org.openXpertya.model.MProduct(this.m_ctx, line.getM_Product_ID(), this.m_trx);
+				
+				// Necesito determinar si el depósito de origen corresponde a restar o sumar stock en presta
+				
+				String sumarOrigen = MParametros.getParameterValueByName(this.m_ctx, "nombreOrigenSumarStock", this.m_trx);
+				
+				BigDecimal cant = line.getQtyCount();
+				
+				if(sumarOrigen.equals(loc.getValue())) {
+					
+					// Tipo de operación doctype = O es Sobreescribir Inventario
+					
+					if(doctype.equals("O")) {
 
-            Credentials credentials = new UsernamePasswordCredentials(userId, password);
-            HttpClient httpClient = new HttpClient();
-            httpClient.getState().setCredentials(AuthScope.ANY, credentials);
-            httpClient.getParams().setAuthenticationPreemptive(true);
+						// Obtengo la información de la entidad que necesitamos modificar
+						
+						ClientRequest request =  ClientWS.getItem(this.m_ctx, "/stock_availables/", product.getValue());
+						request.accept("application/xml");	            
+			            ClientResponse<String> response = request.get(String.class);
 
-            ClientExecutor clientExecutor = new ApacheHttpClientExecutor(httpClient);
 
-            URI uri = new URI(URLParam);
-            
-            ClientRequestFactory fac = new ClientRequestFactory(clientExecutor,uri); 
-            
-            // Request necesita instanciar el producto a actualizar stock
-            // URLParam/id
+			            if (response.getStatus() != 200) {
+			                    throw new RuntimeException("Failed : HTTP error code : " + response.getStatus());
+			            } else {	
+			                String xml_item = WSParser.parserUpdateStock(response.getEntity().getBytes("UTF-8"), cant.setScale(0), "cambiar");	                
+			                ClientWS.putItem(this.m_ctx, "/stock_availables/", product.getValue(), xml_item);
+			            }
+						
+					
+					// Tipo de operación doctype = O es Sobreescribir Inventario
+					} else if(doctype.equals("D")) {
 
-            String URLParamItem = URLParam + "/4";
-            
-            
-            ClientRequest requestGet = fac.createRequest(URLParamItem);
+						// Obtengo la información de la entidad que necesitamos modificar
+						
+						ClientRequest request =  ClientWS.getItem(this.m_ctx, "/stock_availables/", product.getValue());
+						request.accept("application/xml");	            
+			            ClientResponse<String> response = request.get(String.class);
 
-            requestGet.accept("application/xml");
-            
-            ClientResponse<String> response = requestGet.get(String.class);
-            System.out.println(response.getEntity());
-            
-            
 
-            if (response.getStatus() != 200) {
-                    throw new RuntimeException("Failed : HTTP error code : "
-                                    + response.getStatus());
-            } else {
-                
-                // Creamos el builder basado en SAX  
-                SAXBuilder builder = new SAXBuilder();  
-                // Construimos el arbol DOM a partir del fichero xml  
-                InputStream stream = new ByteArrayInputStream(response.getEntity().getBytes("UTF-8"));
-                Document documentJDOM = builder.build(stream);
-                
-                // Obtengo el valor de la etiqueta a modificar
-                
-                Element etiquetaPrestashop = documentJDOM.getRootElement();
-                Element etiquetaStockDisp = etiquetaPrestashop.getChild("stock_available");
-                Element etiquetaQty = etiquetaStockDisp.getChild("quantity");
-                
-                String texto = etiquetaQty.getText();
-                
-                System.out.println(texto);
-                
-                etiquetaQty.setText("1000");
-                
-                String texto_nuevo = etiquetaQty.getText();
-                                        
-                System.out.println(texto_nuevo);
-
-                
-
-                // Vamos a serializar el XML  
-                // Lo primero es obtener el formato de salida  
-                // Partimos del "Formato bonito", aunque también existe el plano y el compacto  
-                
-                Format format = Format.getRawFormat();  
-                
-                // Creamos el serializador con el formato deseado  
-                
-                XMLOutputter xmloutputter = new XMLOutputter(format);  
-                
-                // Serializamos el document parseado  
-                
-                String xmltext = xmloutputter.outputString(documentJDOM.getDocument());                          
-
-                System.out.println(xmltext);
-                
-                XMLOutputter serializer = new XMLOutputter();                       
-                
-                xmltext = serializer.outputString(documentJDOM);
-                                  
-                System.out.println(xmltext);
-                
-                ClientRequest requestAdd = fac.createRequest(URLParam + "/{id}");
-                
-                requestAdd.accept("application/xml").pathParameter("id", 4).body( MediaType.APPLICATION_XML, xmltext);
-
-                ClientResponse responsePut = requestAdd.put();
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut.getStatus());
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut);                        
-                
-                
-                
-                
-            }
+			            if (response.getStatus() != 200) {
+			                    throw new RuntimeException("Failed : HTTP error code : " + response.getStatus());
+			            } else {	
+			                String xml_item = WSParser.parserUpdateStock(response.getEntity().getBytes("UTF-8"), cant.setScale(0), "sumar");	                
+			                ClientWS.putItem(this.m_ctx, "/stock_availables/", product.getValue(), xml_item);
+			            }
+						
+						
+					}
+					
+		            
+				}
+				
+	            	
+			}
             
 
 		} catch (ClientProtocolException e) {
