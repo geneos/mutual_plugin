@@ -31,7 +31,7 @@ public class WSParser {
 	public WSParser(Properties m_ctx, String m_item, String v_item) {
 	}
 	
-	public static String parserUpdateStock(byte[] resp, String new_stock) {
+	public static String parserUpdateStock(byte[] resp, BigDecimal cant, String accion) {
 		
         // Creamos el builder basado en SAX  
         SAXBuilder builder = new SAXBuilder();  
@@ -46,7 +46,26 @@ public class WSParser {
 	        Element etiquetaStockDisp = etiquetaPrestashop.getChild("stock_available");
 	        Element etiquetaQty = etiquetaStockDisp.getChild("quantity");
 	        
-	        etiquetaQty.setText(new_stock);
+	        BigDecimal anterior = new BigDecimal(etiquetaQty.getText().replaceAll(",", ""));
+	        
+	        if(accion == "sumar") {
+	        	anterior = anterior.add(cant);	
+	        }
+	        else if(accion == "restar") {
+	        	anterior = anterior.subtract(cant);	
+	        }
+	        else if(accion == "cambiar") {
+	        	anterior = cant;
+	        }
+	        
+	        
+	        	
+	        	
+	        	
+	        
+	        // Solo admite valores enteros
+	        
+	        etiquetaQty.setText(anterior.setScale(0).toString());
 
 	        // Vamos a serializar el XML  
 	        // Lo primero es obtener el formato de salida  
