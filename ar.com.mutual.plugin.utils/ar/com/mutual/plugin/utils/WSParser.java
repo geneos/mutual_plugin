@@ -12,9 +12,11 @@ import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.http.client.ClientProtocolException;
 import org.jboss.resteasy.client.ClientExecutor;
 import org.jboss.resteasy.client.ClientRequest;
 import org.jboss.resteasy.client.ClientRequestFactory;
+import org.jboss.resteasy.client.ClientResponse;
 import org.jboss.resteasy.client.core.executors.ApacheHttpClientExecutor;
 import org.jdom2.Document;
 import org.jdom2.Element;
@@ -166,6 +168,52 @@ public class WSParser {
 
 	}
 	
+	public static Document getDOMfromXML (ClientResponse<String> XML){
+		
+		Document documentJDOM = null;
+		
+        try {
+        	
+        	byte[] r = XML.getEntity().getBytes("UTF-8");
+    		// Creamos el builder basado en SAX  
+            SAXBuilder builder = new SAXBuilder();  
+            // Construimos el arbol DOM a partir del fichero xml  
+            InputStream stream = new ByteArrayInputStream(r);
+           
+        	//Get DOM
+			documentJDOM = builder.build(stream);
+        } catch (ClientProtocolException e) {
+			e.printStackTrace();
+		} catch (JDOMException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        
+        
+        return documentJDOM;
+	}
 	
+	public static String getXMLfromDOM (Document DOM){
+		
+		String xmltext = null;
+		
+        Format format = Format.getRawFormat();
+        
+        // Creamos el serializador con el formato deseado  
+        
+        XMLOutputter xmloutputter = new XMLOutputter(format);  
+        
+        // Serializamos el document parseado  
+        
+        xmltext = xmloutputter.outputString(DOM.getDocument());                          
+        
+        XMLOutputter serializer = new XMLOutputter();                       
+        xmltext = serializer.outputString(DOM);
+        
+        return xmltext;
+	}
 	
 }
