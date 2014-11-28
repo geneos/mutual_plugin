@@ -1999,7 +1999,9 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 							
 							m_ctx = Env.getCtx(); //VER PROPERTIES
 							int bPartnerID = ((Integer)pValue).intValue();
+							
 							//Obtener Fecha Inicio para conteo de cuotas (campo StartHolidays)						
+							
 							MBPartner bp = new MBPartner(m_ctx, bPartnerID, null);
 							Date dfechainicio = bp.getStartHolidays();
 							Calendar calinicio = Calendar.getInstance();
@@ -2007,10 +2009,9 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 							int monthinicio = calinicio.get(Calendar.MONTH) + 1;							
 							int yearinicio = calinicio.get(Calendar.YEAR);							
 																				
-							//Limite de Cuotas Sociales IMPAGAS (Luego Tabla de Parametros)
+							//Limite de Cuotas Sociales IMPAGAS (tabla de parámetros)
 							String parametro = MParametros.getParameterValueByName(m_ctx, "LimiteCuotasSocialesImpagas", "");
-							int iLIMITECUOTASSOCIALESIMPAGAS = Integer.parseInt(parametro);
-							//int iLIMITECUOTASSOCIALESIMPAGAS = 3;
+							int cuotasImpagas = Integer.parseInt(parametro);
 							
 							Date dfechaActual = new Date();						    
 							Calendar calactual = Calendar.getInstance();
@@ -2021,13 +2022,18 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 						    //GET: Ultima Cuota Social Paga				   
 							String cuota = MCuotaSocial.getLastCuotaByBPartner(m_ctx, bPartnerID, "");
 							int yearcuota = 0;
-							int monthcuota = 0;							
+							int monthcuota = 0;			
+							
+							// Uso para saber si al menos ha pagado 1 cuota.
+							boolean flag_algunpago = false;
+							
 							if( cuota != null ) {
 								String[] parts = cuota.split("/");
 								String mes = parts[0]; 
 								String anio = parts[1]; 								
 								yearcuota = Integer.parseInt(anio);						
 								monthcuota = Integer.parseInt(mes);
+								flag_algunpago = true;
 			                }
 												
 							int cuotasnecesarias = 0;							
@@ -2058,22 +2064,29 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 								OrderProduct op = ops.get(i);
 								Product p = op.getProduct();
 								//Es Cuota -> Ver Cantidad
-							    if (p.getCode().equals("CS001") || p.getCode().equals("CS002")) {
+							    if (p.getCode().toUpperCase().equals("CS001") || p.getCode().toUpperCase().equals("CS002")) {
 							    	cuotaspedido =  cuotaspedido + op.getCount().intValue();
 							    }							    	
 							}
+							
 							//Descuento las Cuotas agregadas al pedido
 							cuotaspagas = cuotaspagas + cuotaspedido;
+							
 							//Calculo final de cuotas
 							int cuotasadeudadas = cuotasnecesarias - cuotaspagas;
-							if (cuotasadeudadas > iLIMITECUOTASSOCIALESIMPAGAS) {
+							String msg_bloqueante = "";
+							
+							if (cuotasadeudadas > cuotasImpagas) {
 								//Pasarle el dato de la ultima cuota paga y la cantidad que debe
 								//Las cuotas las agrega el operador a mano en la venta								
-								String msg_bloqueante = "La última cuota paga del asociado pertenece al periodo " + Integer.toString(monthcuota) + "/" + Integer.toString(yearcuota) + ". Para realizar una compra no puede deber más de " + iLIMITECUOTASSOCIALESIMPAGAS + " cuotas.";								
-								//infoMsg(MSG_CUOTAS_VENCIDAS_BLOQUEANTE);
+								if(flag_algunpago)
+									msg_bloqueante = "La última cuota paga del asociado pertenece al periodo " + Integer.toString(monthcuota) + "/" + Integer.toString(yearcuota) + ". Para realizar una compra no puede deber más de " + cuotasImpagas + " cuotas.";								
+								else
+									msg_bloqueante = "El cliente no ha pagado cuotas sociales aún. Para realizar una compra no puede deber más de " + cuotasImpagas + " cuotas.";								
 								infoMsg(msg_bloqueante);
+								//infoMsg(MSG_CUOTAS_VENCIDAS_BLOQUEANTE);
 								getCAddTenderTypeButton().setEnabled(false);
-							} else if(1<=cuotasadeudadas && cuotasadeudadas<=iLIMITECUOTASSOCIALESIMPAGAS) {
+							} else if(1<=cuotasadeudadas && cuotasadeudadas<=cuotasImpagas) {
 								//Avisarle que debe cuotas, menos del limite, y preguntar si quiere pagar
 								String msg_aviso = "La última cuota paga del asociado pertenece al periodo " + Integer.toString(monthcuota) + "/" + Integer.toString(yearcuota) + ". Si desea pagar cuotas sociales adeudadas, agréguelas al pedido.";								
 								//infoMsg(MSG_CUOTAS_VENCIDAS_AVISO);
