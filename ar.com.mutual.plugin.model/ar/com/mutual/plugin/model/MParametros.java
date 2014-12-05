@@ -39,6 +39,7 @@ public final class MParametros extends LP_G_Parametros {
 	/**
 	 * 
 	 */
+	
 	private static final long serialVersionUID = -6215599179594921977L;
 		
 	public MParametros(Properties ctx, int G_Parametros_ID,

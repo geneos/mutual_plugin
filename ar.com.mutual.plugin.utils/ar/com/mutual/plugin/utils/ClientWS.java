@@ -25,6 +25,7 @@ public class ClientWS {
 	public ClientWS() {
 	}
 	
+	
 	public static ClientRequest getItem(Properties m_ctx, String m_item, String v_item) {
 		
         // Obtener los datos de conexión desde la tabla de parámetros
