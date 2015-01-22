@@ -41,12 +41,13 @@ public class MOrder extends MPluginDocAction {
 		//Obtengo XML del recurso en blanco
 		xml_dom = ClientWS.getDomBlank(this.m_ctx,resource );
 		//Sincronizo Datos
-		addItem(xml_dom,order);
+		if (!addItem(xml_dom,order));
+			throw new Exception("MOrder.postCompleteit: No se pudo agregar historial en Presta");
 
 	}
 	
 	public MPluginStatusDocAction postCompleteIt(DocAction document) {
-		
+		boolean error = false;
 		org.openXpertya.model.MOrder order = (org.openXpertya.model.MOrder)document;
 		
 		try {
@@ -57,18 +58,23 @@ public class MOrder extends MPluginDocAction {
             
 
 		} catch (ClientProtocolException e) {
-	
+			error = true;
 			e.printStackTrace();
-	
+
 		} catch (IOException e) {
-	
+			error = true;
 			e.printStackTrace();
-	
+
 		} catch (Exception e) {
-	
+			error = true;
 			e.printStackTrace();
-	
-		}
+
+		}		
+	   
+	   if (error){
+		   status_docAction.setContinueStatus(0);
+		   status_docAction.setProcessMsg("Error al intentar sincronizar cambios con Prestashop");
+	   }
 			
 		return status_docAction;
 		

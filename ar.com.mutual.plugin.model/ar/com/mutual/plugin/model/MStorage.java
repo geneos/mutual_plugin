@@ -39,6 +39,42 @@ public class MStorage extends MPluginDocAction {
 	 
 	public MPluginStatusPO afterBeforeSave(PO po, boolean newRecord) {
 		
+		String sinc = MParametros.getParameterValueByName(m_ctx, "sincMStorage", null);
+		boolean error = false;
+		
+		
+		try {
+			
+			if (sinc != null && sinc.toLowerCase().equals("si")){
+				sincronizarConPresta(po);
+			}
+		} catch (ClientProtocolException e) {
+			error = true;
+			e.printStackTrace();
+
+		} catch (IOException e) {
+			error = true;
+			e.printStackTrace();
+
+		} catch (Exception e) {
+			error = true;
+			e.printStackTrace();
+
+		}		
+	   
+	   if (error){
+		   status_po.setContinueStatus(0);
+		   status_po.setErrorMessage("Error al intentar sincronizar cambios con Prestashop");
+	   }
+			
+		return status_po;
+	}	
+ 
+	public void sincronizarConPresta(PO po) throws 
+	ClientProtocolException, 
+	IOException, 
+	Exception {
+		
 		org.openXpertya.model.MStorage storage = (org.openXpertya.model.MStorage)po;
 		
 		int product_ID = storage.getM_Product_ID();
@@ -47,131 +83,107 @@ public class MStorage extends MPluginDocAction {
 		
 		BigDecimal stock = org.openXpertya.model.MStorage.getQtyAvailable(0, product_ID);
 		
-			
-		try {
+        // Obtener los datos de conexión desde la tabla de parámetros
+		
+        String userId = MParametros.getParameterValueByName(this.m_ctx, "userPrestashop", null);
+        String password = MParametros.getParameterValueByName(this.m_ctx, "passwordPrestashop", null);
+        String URLParam = MParametros.getParameterValueByName(this.m_ctx, "urlPrestashop", null);
+            	
+        URLParam += "/stock_availables";
             
-            // Obtener los datos de conexión desde la tabla de parámetros
-			
-            String userId = MParametros.getParameterValueByName(this.m_ctx, "userPrestashop", null);
-            String password = MParametros.getParameterValueByName(this.m_ctx, "passwordPrestashop", null);
-            String URLParam = MParametros.getParameterValueByName(this.m_ctx, "urlPrestashop", null);
-                	
-            URLParam += "/stock_availables";
-                
-            //String userId = "44JBNUUQY34YG5R2BHNFJ6AC3XJ7Z8IF";
-            //String password = "";
+        //String userId = "44JBNUUQY34YG5R2BHNFJ6AC3XJ7Z8IF";
+        //String password = "";
 
-            Credentials credentials = new UsernamePasswordCredentials(userId, password);
-            HttpClient httpClient = new HttpClient();
-            httpClient.getState().setCredentials(AuthScope.ANY, credentials);
-            httpClient.getParams().setAuthenticationPreemptive(true);
+        Credentials credentials = new UsernamePasswordCredentials(userId, password);
+        HttpClient httpClient = new HttpClient();
+        httpClient.getState().setCredentials(AuthScope.ANY, credentials);
+        httpClient.getParams().setAuthenticationPreemptive(true);
 
-            ClientExecutor clientExecutor = new ApacheHttpClientExecutor(httpClient);
+        ClientExecutor clientExecutor = new ApacheHttpClientExecutor(httpClient);
 
-            URI uri = new URI(URLParam);
+        URI uri = new URI(URLParam);
+        
+        ClientRequestFactory fac = new ClientRequestFactory(clientExecutor,uri); 
+        
+        // Request necesita instanciar el producto a actualizar stock
+        // URLParam/id
+
+        String URLParamItem = URLParam + "/4";
+        
+        
+        ClientRequest requestGet = fac.createRequest(URLParamItem);
+
+        requestGet.accept("application/xml");
+        
+        ClientResponse<String> response = requestGet.get(String.class);
+        System.out.println(response.getEntity());
+        
+        
+
+        if (response.getStatus() != 200) {
+                throw new RuntimeException("Failed : HTTP error code : "
+                                + response.getStatus());
+        } else {
             
-            ClientRequestFactory fac = new ClientRequestFactory(clientExecutor,uri); 
+            // Creamos el builder basado en SAX  
+            SAXBuilder builder = new SAXBuilder();  
+            // Construimos el arbol DOM a partir del fichero xml  
+            InputStream stream = new ByteArrayInputStream(response.getEntity().getBytes("UTF-8"));
+            Document documentJDOM = builder.build(stream);
             
-            // Request necesita instanciar el producto a actualizar stock
-            // URLParam/id
-
-            String URLParamItem = URLParam + "/4";
+            // Obtengo el valor de la etiqueta a modificar
             
+            Element etiquetaPrestashop = documentJDOM.getRootElement();
+            Element etiquetaStockDisp = etiquetaPrestashop.getChild("stock_available");
+            Element etiquetaQty = etiquetaStockDisp.getChild("quantity");
             
-            ClientRequest requestGet = fac.createRequest(URLParamItem);
-
-            requestGet.accept("application/xml");
+            String texto = etiquetaQty.getText();
             
-            ClientResponse<String> response = requestGet.get(String.class);
-            System.out.println(response.getEntity());
+            System.out.println(texto);
             
+            etiquetaQty.setText("1000");
             
+            String texto_nuevo = etiquetaQty.getText();
+                                    
+            System.out.println(texto_nuevo);
 
-            if (response.getStatus() != 200) {
-                    throw new RuntimeException("Failed : HTTP error code : "
-                                    + response.getStatus());
-            } else {
-                
-                // Creamos el builder basado en SAX  
-                SAXBuilder builder = new SAXBuilder();  
-                // Construimos el arbol DOM a partir del fichero xml  
-                InputStream stream = new ByteArrayInputStream(response.getEntity().getBytes("UTF-8"));
-                Document documentJDOM = builder.build(stream);
-                
-                // Obtengo el valor de la etiqueta a modificar
-                
-                Element etiquetaPrestashop = documentJDOM.getRootElement();
-                Element etiquetaStockDisp = etiquetaPrestashop.getChild("stock_available");
-                Element etiquetaQty = etiquetaStockDisp.getChild("quantity");
-                
-                String texto = etiquetaQty.getText();
-                
-                System.out.println(texto);
-                
-                etiquetaQty.setText("1000");
-                
-                String texto_nuevo = etiquetaQty.getText();
-                                        
-                System.out.println(texto_nuevo);
-
-                ClientRequest requestAdd = fac.createRequest(URLParam + "/{id}");
+            ClientRequest requestAdd = fac.createRequest(URLParam + "/{id}");
 
 
-                // Vamos a serializar el XML  
-                // Lo primero es obtener el formato de salida  
-                // Partimos del "Formato bonito", aunque también existe el plano y el compacto  
-                
-                Format format = Format.getRawFormat();  
-                
-                // Creamos el serializador con el formato deseado  
-                
-                XMLOutputter xmloutputter = new XMLOutputter(format);  
-                
-                // Serializamos el document parseado  
-                
-                String xmltext = xmloutputter.outputString(documentJDOM.getDocument());                          
-
-                System.out.println(xmltext);
-                
-                XMLOutputter serializer = new XMLOutputter();                       
-                
-                xmltext = serializer.outputString(documentJDOM);
-                                  
-                System.out.println(xmltext);
-                
-                requestAdd.accept("application/xml").pathParameter("id", 4).body( MediaType.APPLICATION_XML, xmltext);
-
-                ClientResponse responsePut = requestAdd.put();
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut.getStatus());
-                //get response and automatically unmarshall to a string.
-
-                System.out.println(responsePut);                        
-                
-                
-                
-                
-            }
+            // Vamos a serializar el XML  
+            // Lo primero es obtener el formato de salida  
+            // Partimos del "Formato bonito", aunque también existe el plano y el compacto  
             
+            Format format = Format.getRawFormat();  
+            
+            // Creamos el serializador con el formato deseado  
+            
+            XMLOutputter xmloutputter = new XMLOutputter(format);  
+            
+            // Serializamos el document parseado  
+            
+            String xmltext = xmloutputter.outputString(documentJDOM.getDocument());                          
 
-		} catch (ClientProtocolException e) {
-	
-			e.printStackTrace();
-	
-		} catch (IOException e) {
-	
-			e.printStackTrace();
-	
-		} catch (Exception e) {
-	
-			e.printStackTrace();
-	
-		}
-			
-			
-		return status_po;
-	}	
- 
+            System.out.println(xmltext);
+            
+            XMLOutputter serializer = new XMLOutputter();                       
+            
+            xmltext = serializer.outputString(documentJDOM);
+                              
+            System.out.println(xmltext);
+            
+            requestAdd.accept("application/xml").pathParameter("id", 4).body( MediaType.APPLICATION_XML, xmltext);
+
+            ClientResponse responsePut = requestAdd.put();
+            //get response and automatically unmarshall to a string.
+
+            System.out.println(responsePut.getStatus());
+            //get response and automatically unmarshall to a string.
+
+            System.out.println(responsePut);                        
+
+            
+        }
+	}
 	
 }

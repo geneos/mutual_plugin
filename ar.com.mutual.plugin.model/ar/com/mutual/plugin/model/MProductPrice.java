@@ -26,23 +26,23 @@ public class MProductPrice extends MPluginPO {
 		
 		org.openXpertya.model.MProductPrice price = (org.openXpertya.model.MProductPrice) po;
 		
-		int product_ID = price.getM_Product_ID();
+  		int product_ID = price.getM_Product_ID();
 		org.openXpertya.model.MProduct product = new org.openXpertya.model.MProduct(this.m_ctx, product_ID, null);
 		
 		System.out.println("ID de producto " + product_ID);
-		String priceListVersion_ID = Integer.toString(price.getM_PriceList_Version_ID());
+		//String priceListVersion_ID = Integer.toString(price.getM_PriceList_Version_ID());
 		
-		String priceListVersionParameter_ID = MParametros.getParameterValueByName(this.m_ctx, "priceListVersion_ID", null);
+		//String priceListVersionParameter_ID = MParametros.getParameterValueByName(this.m_ctx, "priceListVersion_ID", null);
 
 	
-		if(priceListVersionParameter_ID.equals(priceListVersion_ID)) {
+		//if(priceListVersionParameter_ID.equals(priceListVersion_ID)) {
                 	
                 try {
                 	
                 	
 					// Obtengo la información de la entidad que necesitamos modificar
 					
-					ClientRequest request =  ClientWS.getItem(this.m_ctx, "/products/", product.getValue());
+					ClientRequest request =  ClientWS.getItem(this.m_ctx, "/products/", "1");
 					request.accept("application/xml");	            
 		            ClientResponse<String> response = request.get(String.class);
 	
@@ -52,7 +52,7 @@ public class MProductPrice extends MPluginPO {
 		            } else {	
 		                String xml_item = WSParser.parserUpdatePrice(response.getEntity().getBytes("UTF-8"), price.getPriceStd().setScale(2).toString());	                
 		                System.out.println(xml_item);
-		                ClientWS.putItem(this.m_ctx, "/products/", product.getValue(), xml_item);
+		                ClientWS.putItem(this.m_ctx, "/products/", "1", xml_item);
 		                //ClientWS.putItem(this.m_ctx, "/products/", product.getValue(), response.getEntity().getBytes("UTF-8").toString());
 		            }
 		        
@@ -72,7 +72,7 @@ public class MProductPrice extends MPluginPO {
 		
 				}			
 			
-		}
+		//}
 
 		
 		return status_po;
