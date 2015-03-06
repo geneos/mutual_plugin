@@ -2040,8 +2040,9 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 							if (yearinicio == year) {
 								cuotasnecesarias = month - monthinicio;
 							} else {
-								int yeardifinicio = year - yearinicio;								
-								cuotasnecesarias = month + (12-monthinicio) + (12*(yeardifinicio-1));	
+								int yeardifinicio = year - yearinicio;
+								// Ejemplo: incio 7/2014 actual 3/2015 serían 3 cuotas de 2015 y 6 de 2014
+								cuotasnecesarias = month + (12-monthinicio+1) + (12*(yeardifinicio-1));	
 							}
 																												
 							int cuotaspagas = 0;
@@ -2088,7 +2089,7 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 								getCAddTenderTypeButton().setEnabled(false);
 							} else if(1<=cuotasadeudadas && cuotasadeudadas<=cuotasImpagas) {
 								//Avisarle que debe cuotas, menos del limite, y preguntar si quiere pagar
-								String msg_aviso = "La última cuota paga del asociado pertenece al periodo " + Integer.toString(monthcuota) + "/" + Integer.toString(yearcuota) + ". Si desea pagar cuotas sociales adeudadas, agréguelas al pedido.";								
+								String msg_aviso = "El cliente adeuda " + Integer.toString(cuotasadeudadas) + ". Si desea pagar cuotas sociales adeudadas, agréguelas al pedido.";								
 								//infoMsg(MSG_CUOTAS_VENCIDAS_AVISO);
 								infoMsg(msg_aviso);
 								loadBPartner(bPartnerID);
