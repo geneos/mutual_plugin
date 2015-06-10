@@ -59,7 +59,7 @@ public final class MParametros extends LP_G_Parametros {
 	   
 		String retValue = null;
 		String sql =	"SELECT name " +
-    				"FROM libertya.g_parametros " +
+    				"FROM g_parametros " +
     				"WHERE value = '" + parameterName + "'";
         
        PreparedStatement pstmt = null;

@@ -513,6 +513,10 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 	private String MSG_CUOTAS_VENCIDAS_AVISO;
 	//GENEOS Properties
 	private Properties 		m_ctx;
+	
+	private boolean cuotaAgregada = false;
+	private int socioCuotaAgregada = 0;
+	
 		
 		
 	/**
@@ -1992,112 +1996,95 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 							getCClientLocationCombo().removeAllItems();
 						} else {
 							TimeStatsLogger.beginTask(MeasurableTask.POS_LOAD_BPARTNER);
+								
+												
 														
-							// GENEOS
-							// Previo a realizar la carga del cliente se valida si puede facturarse.
-							// En caso de no poder envío mensaje e inhabilito el botón de medio de pago.
+							/*
+							 * Cambio funcional solicitado por Maria Elisa
+							 * Validar si el socio ha pagado la cuota del mes en curso.
+							 * - Si ha pagado se procese de forma normal sin cambios.
+							 * - Si no ha pagado se informa y se agrega un íten a la compra con la cuota social del mes en curso.
+							 * 
+							 * @autor Cooperativa Geneos
+							 * 
+							 */
 							
 							m_ctx = Env.getCtx(); //VER PROPERTIES
 							int bPartnerID = ((Integer)pValue).intValue();
 							
-							//Obtener Fecha Inicio para conteo de cuotas (campo StartHolidays)						
+							/*
+							 * 	Si se agrego el cobro de la cuota cartel para eliminarlo.
+							 * 
+							 */
+							
+							if(cuotaAgregada == true & socioCuotaAgregada != bPartnerID) {
+								String msg_eliminar_cuota_agregada = "Se debe eliminar de forma manual la cuota agregada.";								
+								infoMsg(msg_eliminar_cuota_agregada);	
+								
+							}
+							
+							
+							// Obtener el cliente						
 							
 							MBPartner bp = new MBPartner(m_ctx, bPartnerID, null);
-							Date dfechainicio = bp.getStartHolidays();
-							Calendar calinicio = Calendar.getInstance();
-							calinicio.setTime(dfechainicio);
-							int monthinicio = calinicio.get(Calendar.MONTH) + 1;							
-							int yearinicio = calinicio.get(Calendar.YEAR);							
-																				
-							//Limite de Cuotas Sociales IMPAGAS (tabla de parámetros)
-							String parametro = MParametros.getParameterValueByName(m_ctx, "LimiteCuotasSocialesImpagas", "");
-							int cuotasImpagas = Integer.parseInt(parametro);
 							
-							Date dfechaActual = new Date();						    
-							Calendar calactual = Calendar.getInstance();
-							calactual.setTime(dfechaActual);
-							int month = calactual.get(Calendar.MONTH) + 1;							
-							int year = calactual.get(Calendar.YEAR);							
+							// Obtener la fecha actual, sacando mes y año
+							
+							Calendar fecha = Calendar.getInstance();
+							
+							int mes = fecha.get(Calendar.MONTH) + 1;							
+							int anio = fecha.get(Calendar.YEAR);							
 																																									
-						    //GET: Ultima Cuota Social Paga				   
-							String cuota = MCuotaSocial.getLastCuotaByBPartner(m_ctx, bPartnerID, "");
-							int yearcuota = 0;
-							int monthcuota = 0;			
+						    boolean cuotaPaga = MCuotaSocial.cuotaPaga(mes, anio, bPartnerID);
+						    
+						    Date socioFechaInicio = bp.getStartHolidays();
+						    
+						    if(socioFechaInicio == null) {
+						    	String msg_eliminar_cuota_agregada = "Atención !!! Se debe agregar Fecha de Inicio de cobro de cuotas para el Socio.";								
+								infoMsg(msg_eliminar_cuota_agregada);						    	
+						    }
+						    
+							Calendar fechaInicio = Calendar.getInstance();
+							fechaInicio.setTime(socioFechaInicio);
 							
-							// Uso para saber si al menos ha pagado 1 cuota.
-							boolean flag_algunpago = false;
+							int mesInicio = fechaInicio.get(Calendar.MONTH) + 1;							
+							int anioInicio = fechaInicio.get(Calendar.YEAR);							
 							
-							if( cuota != null ) {
-								String[] parts = cuota.split("/");
-								String mes = parts[0]; 
-								String anio = parts[1]; 								
-								yearcuota = Integer.parseInt(anio);						
-								monthcuota = Integer.parseInt(mes);
-								flag_algunpago = true;
-			                }
-												
-							int cuotasnecesarias = 0;							
-							if (yearinicio == year) {
-								cuotasnecesarias = month - monthinicio;
-							} else {
-								int yeardifinicio = year - yearinicio;
-								// Ejemplo: incio 7/2014 actual 3/2015 serían 3 cuotas de 2015 y 6 de 2014
-								cuotasnecesarias = month + (12-monthinicio+1) + (12*(yeardifinicio-1));	
-							}
-																												
-							int cuotaspagas = 0;
-							if (yearcuota != 0) {
-								if (yearcuota == yearinicio) {
-									//Cuotas: Mes Actual - Mes Ultima Cuota
-									cuotaspagas = monthcuota - monthinicio;
-								} else {
-									//El año de la ultima cuota es otro año
-									int yeardifcuota = yearcuota - yearinicio;
-									//Cuotas: Mes Actual-1 + 12-Mes Cuota + 12*(Diferencia-1)
-									cuotaspagas = monthcuota + (12-monthinicio) + (12*(yeardifcuota-1));
-								}
-							}
-																																														
-							//Buscar Cuotas en el pedido actual			
-							int cuotaspedido = 0;
-							List<OrderProduct> ops = getOrderTableModel().getOrderProducts();
-							for ( int i = 0; i < ops.size(); i ++ ) {
-								OrderProduct op = ops.get(i);
-								Product p = op.getProduct();
-								//Es Cuota -> Ver Cantidad
-							    if (p.getCode().toUpperCase().equals("CS001") || p.getCode().toUpperCase().equals("CS002")) {
-							    	cuotaspedido =  cuotaspedido + op.getCount().intValue();
-							    }							    	
-							}
+							/*
+							 *  Verifico si la fecha de cobro es igual a la fecha de inicio
+							 *  de cobro de cuotas. Bonificación de cuota 1.
+							 *   
+							 */
 							
-							//Descuento las Cuotas agregadas al pedido
-							cuotaspagas = cuotaspagas + cuotaspedido;
+							boolean flagCobro = false;
 							
-							//Calculo final de cuotas
-							int cuotasadeudadas = cuotasnecesarias - cuotaspagas;
-							String msg_bloqueante = "";
-							
-							if (cuotasadeudadas > cuotasImpagas) {
-								//Pasarle el dato de la ultima cuota paga y la cantidad que debe
-								//Las cuotas las agrega el operador a mano en la venta								
-								if(flag_algunpago)
-									msg_bloqueante = "La última cuota paga del asociado pertenece al periodo " + Integer.toString(monthcuota) + "/" + Integer.toString(yearcuota) + ". Para realizar una compra no puede deber más de " + cuotasImpagas + " cuotas.";								
-								else
-									msg_bloqueante = "El cliente no ha pagado cuotas sociales aún. Para realizar una compra no puede deber más de " + cuotasImpagas + " cuotas.";								
-								infoMsg(msg_bloqueante);
-								//infoMsg(MSG_CUOTAS_VENCIDAS_BLOQUEANTE);
-								getCAddTenderTypeButton().setEnabled(false);
-							} else if(1<=cuotasadeudadas && cuotasadeudadas<=cuotasImpagas) {
-								//Avisarle que debe cuotas, menos del limite, y preguntar si quiere pagar
-								String msg_aviso = "El cliente adeuda " + Integer.toString(cuotasadeudadas) + ". Si desea pagar cuotas sociales adeudadas, agréguelas al pedido.";								
-								//infoMsg(MSG_CUOTAS_VENCIDAS_AVISO);
-								infoMsg(msg_aviso);
-								loadBPartner(bPartnerID);
-								getCAddTenderTypeButton().setEnabled(true);
-							} else {
-								loadBPartner(bPartnerID);
-								getCAddTenderTypeButton().setEnabled(true);
-							}																							
+							if(anioInicio != anio)
+								flagCobro = true;
+							else
+								if(mesInicio != mes)
+									flagCobro = true;
+									
+						    
+						    
+						    if(!cuotaPaga & flagCobro & bPartnerID != socioCuotaAgregada) {
+						    	
+						    	// productId correspondiente al producto Cuota Social
+						    	
+						    	int productId = 1016092;
+						    	
+						    	Product product = getModel().getProduct(productId, 0);
+						    	addOrderProduct(product);
+						    	
+						    	String msg_cuota_agregada = "Se agrega la cuota del mes en curso a la factura.";								
+								infoMsg(msg_cuota_agregada);
+								
+								cuotaAgregada = true;
+								socioCuotaAgregada = bPartnerID;
+								
+						    }
+
+						    loadBPartner(bPartnerID);
+						    
 						}
 						refreshPaymentMediumInfo();
 						TimeStatsLogger.endTask(MeasurableTask.POS_LOAD_BPARTNER);
@@ -4452,6 +4439,15 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 		BigDecimal total = getOrder().getTotalAmount();
 		//getCTotalAmountLabel().setText(total.toString());
 		getCTotalAmountLabel().setText(amountFormat.format(total));
+		
+		/*
+		 * 	Actualizar campo de conversión luego de agregar Cuota Social al pedido
+		 * 	@autor Cooperativa Geneos
+		 * 	@date 11/05/2015
+		 */
+		
+		getCConvertedAmountText().setValue(total);
+		
 	}
 
 	/**
@@ -5171,7 +5167,6 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 		getCRemovePaymentButton().setEnabled(getOrder().hasPayments());
 	}
 	
-	//GENEOS COBRO
 	private void completeOrder() {
 		TimeStatsLogger.beginTask(MeasurableTask.POS_SAVE_DOCUMENTS);
 		TimeStatsLogger.beginTask(MeasurableTask.POS_COMPLETE_ORDER);

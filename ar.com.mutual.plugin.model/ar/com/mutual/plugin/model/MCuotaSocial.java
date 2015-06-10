@@ -18,9 +18,11 @@ package ar.com.mutual.plugin.model;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 import java.util.logging.Level;
 
+import org.openXpertya.pos.exceptions.PosException;
 import org.openXpertya.util.CLogger;
 import org.openXpertya.util.Env;
 import org.openXpertya.util.DB;
@@ -51,77 +53,56 @@ public final class MCuotaSocial extends LP_G_Cuotasocial {
 		super(ctx, rs, trxName);
 		// TODO Auto-generated constructor stub
 	}
+
+	/*
+	 * Método que verifica si tiene la cuota del mes/año paga.
+	 * @param mes
+	 * @param año
+	 * @return true si la cuota social del mes/año esta paga
+	 * @return false si la cuota social del mes/año no esta paga
+	 * 
+	 * @autor Cooperativa Geneos 
+	 * 
+	 */
 	
-	
-	public static String getLastCuotaByBPartner(Properties ctx, int MBPartner_ID, String trxName ) {
-		//Trae la última cuota social paga de un determinado cliente
-    	String retValue = null;
-        String    sql      = "SELECT mes, anio FROM libertya.g_cuotasocial WHERE c_bpartner_id = ? " +
-        					 "ORDER BY anio, mes DESC LIMIT 1";         	    	
+	public static boolean cuotaPaga(int mes, int anio, int socio) {
+		
+		String sql = "SELECT * FROM g_cuotasocial where mes = " + mes + " and anio = " + anio + " and C_BPartner_ID = " + socio;    
+		System.out.println(sql);
+		
         PreparedStatement pstmt = null;
-
-        try {
-            pstmt = DB.prepareStatement( sql );
-            pstmt.setInt( 1,MBPartner_ID );
-            ResultSet rs = pstmt.executeQuery();
-
-            if( rs.next()) {
-                retValue = rs.getString("mes") + "/" + rs.getString("Anio");
-            } else {
-                //s_log.log( Level.SEVERE,"Not found for MBPartner_ID=" + MBPartner_ID);                
-            }
-            rs.close();
-            pstmt.close();
-            pstmt = null;
-        } catch( Exception e ) {
-            //s_log.log( Level.SEVERE,sql,e );
-        } finally {
-            try {
-                if( pstmt != null ) {
-                    pstmt.close();
-                }
-            } catch( Exception e ) {
-            }
-
-            pstmt = null;
-        }
-
-        return retValue;
-    }
-	
-	public static int getLastCuotaSocialID(Properties ctx, String trxName ) {
-		//Trae el ultimo ID de Cuota Social
-    	int retValue = 0;
-        String    sql  	= "SELECT g_cuotasocial_id FROM libertya.g_cuotasocial ORDER BY g_cuotasocial_id DESC LIMIT 1";         	    	
-        PreparedStatement pstmt = null;
+        ResultSet rs = null;
 
         try {
             pstmt = DB.prepareStatement( sql );            
-            ResultSet rs = pstmt.executeQuery();
+            rs = pstmt.executeQuery();
 
             if( rs.next()) {
-                retValue = rs.getInt("g_cuotasocial_id");
+            	rs.close();
+                pstmt.close();
+                pstmt = null;
+                return true;
             } else {
-                //s_log.log( Level.SEVERE,"Not found for MBPartner_ID=" + MBPartner_ID);                
-            }
-            rs.close();
-            pstmt.close();
-            pstmt = null;
-        } catch( Exception e ) {
-            //s_log.log( Level.SEVERE,sql,e );
-        } finally {
-            try {
-                if( pstmt != null ) {
-                    pstmt.close();
-                }
-            } catch( Exception e ) {
+            	rs.close();
+                pstmt.close();
+                pstmt = null;
+                return false;
             }
 
+        } catch( Exception e ) {
+        	try {
+				rs.close();
+				pstmt.close();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}            
             pstmt = null;
         }
 
-        return retValue;
-    }
+        return false;
+    }	
+
 		
 }   // Mgcuotasocial
 
