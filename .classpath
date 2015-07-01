@@ -13,14 +13,8 @@
 	<classpathentry kind="lib" path="lib/jdom-2.0.5.jar"/>
 	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
 	<classpathentry kind="lib" path="lib/xml-apis.jar"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.callout"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.info"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.model"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.process"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.client"/>
+	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/org.libertya.svn"/>
-	<classpathentry kind="src" path="ar.com.mutual.plugin.utils"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

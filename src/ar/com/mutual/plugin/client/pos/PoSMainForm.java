@@ -2064,7 +2064,9 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 								if(mesInicio != mes)
 									flagCobro = true;
 									
-						    
+						    System.out.println("Cuota paga: " + cuotaPaga
+						    		+ " Flag cobro: " + flagCobro
+						    		+ "Socio: " + bPartnerID );
 						    
 						    if(!cuotaPaga & flagCobro & bPartnerID != socioCuotaAgregada) {
 						    	
@@ -2074,6 +2076,8 @@ public class PoSMainForm extends CPanel implements FormPanel, ASyncProcess, Disp
 						    	
 						    	Product product = getModel().getProduct(productId, 0);
 						    	addOrderProduct(product);
+						    	
+						    	System.out.println("Agrega la cuota para su cobro");
 						    	
 						    	String msg_cuota_agregada = "Se agrega la cuota del mes en curso a la factura.";								
 								infoMsg(msg_cuota_agregada);
