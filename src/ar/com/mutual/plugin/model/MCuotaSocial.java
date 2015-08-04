@@ -103,7 +103,59 @@ public final class MCuotaSocial extends LP_G_Cuotasocial {
         return false;
     }	
 
+	/*
+	 * Retorna la última couta social paga.
+	 * @param mes
+	 * @param año
+	 * @return true si la cuota social del mes/año esta paga
+	 * @return false si la cuota social del mes/año no esta paga
+	 * 
+	 * @autor Cooperativa Geneos 
+	 * 
+	 */
+	
+	public static MCuotaSocial ultimaCuotaPaga(Properties ctx, int socio,
+			String trxName) {
 		
+		String sql = "SELECT g_cuotasocial_id FROM g_cuotasocial where C_BPartner_ID = " + socio + " order by g_cuotasocial_id desc";    
+		System.out.println(sql);
+		
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+
+        try {
+            pstmt = DB.prepareStatement( sql );            
+            rs = pstmt.executeQuery();
+
+            if( rs.next()) {
+            	MCuotaSocial cs = new MCuotaSocial(ctx,rs.getInt(1),trxName);
+            	rs.close();
+                pstmt.close();
+                pstmt = null;
+                return cs;
+            } else {
+            	rs.close();
+                pstmt.close();
+                pstmt = null;
+                return null;
+            }
+
+        } catch( Exception e ) {
+        	try {
+				rs.close();
+				pstmt.close();
+			} catch (SQLException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}            
+            pstmt = null;
+        }
+
+        return null;
+    }	
+
+	
+	
 }   // Mgcuotasocial
 
 

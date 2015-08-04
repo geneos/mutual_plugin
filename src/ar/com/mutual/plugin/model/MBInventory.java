@@ -2,6 +2,7 @@ package ar.com.mutual.plugin.model;
 
 import java.util.Properties;
 
+
 import org.openXpertya.model.PO;
 import org.openXpertya.plugin.MPluginPO;
 
